@@ -1,82 +1,58 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const supabase = require('../supabaseClient');
 const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
 
 // --- MENU ---
 
 // GET Menu (Public)
-router.get('/menu', (req, res) => {
-    db.all("SELECT * FROM menu", [], (err, rows) => {
-        if (err) {
-            res.status(400).json({ "error": err.message });
-            return;
-        }
-        res.json({ "message": "success", "data": rows });
-    });
+router.get('/menu', async (req, res) => {
+    const { data, error } = await supabase.from('menu').select('*');
+    if (error) return res.status(400).json({ "error": error.message });
+    res.json({ "message": "success", "data": data });
 });
 
 // CREATE Item (Admin Only)
-router.post('/menu', authenticateToken, isAdmin, (req, res) => {
+router.post('/menu', authenticateToken, isAdmin, async (req, res) => {
     const { name, category, price, description, image_url } = req.body;
-    const stmt = db.prepare("INSERT INTO menu (name, category, price, description, image_url) VALUES (?, ?, ?, ?, ?)");
-    stmt.run(name, category, price, description, image_url, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Item created", id: this.lastID });
-    });
-    stmt.finalize();
+    const { data, error } = await supabase.from('menu').insert([{ name, category, price, description, image_url }]).select();
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ message: "Item created", id: data[0].id });
 });
 
 // UPDATE Item (Admin Only)
-router.put('/menu/:id', authenticateToken, isAdmin, (req, res) => {
+router.put('/menu/:id', authenticateToken, isAdmin, async (req, res) => {
     const { name, category, price, description, image_url } = req.body;
-    const stmt = db.prepare("UPDATE menu SET name=?, category=?, price=?, description=?, image_url=? WHERE id=?");
-    stmt.run(name, category, price, description, image_url, req.params.id, function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Item updated" });
-    });
-    stmt.finalize();
+    const { error } = await supabase.from('menu').update({ name, category, price, description, image_url }).eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ message: "Item updated" });
 });
 
 // DELETE Item (Admin Only)
-router.delete('/menu/:id', authenticateToken, isAdmin, (req, res) => {
-    db.run("DELETE FROM menu WHERE id=?", [req.params.id], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Item deleted" });
-    });
+router.delete('/menu/:id', authenticateToken, isAdmin, async (req, res) => {
+    const { error } = await supabase.from('menu').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ message: "Item deleted" });
 });
 
 // --- ORDERS ---
 
-// GET Orders (Admin Only - Future improvement, or User-specific)
-router.get('/orders', authenticateToken, isAdmin, (req, res) => {
-    db.all("SELECT * FROM orders", [], (err, rows) => {
-        if (err) {
-            res.status(400).json({ "error": err.message });
-            return;
-        }
-        res.json({
-            "message": "success",
-            "data": rows
-        });
-    });
+// GET Orders (Admin Only)
+router.get('/orders', authenticateToken, isAdmin, async (req, res) => {
+    const { data, error } = await supabase.from('orders').select('*');
+    if (error) return res.status(400).json({ "error": error.message });
+    res.json({ "message": "success", "data": data });
 });
 
 // POST Order (Public or Authenticated)
-router.post('/order', (req, res) => {
+router.post('/order', async (req, res) => {
     const { items, total_amount, user_detail } = req.body;
-    const stmt = db.prepare("INSERT INTO orders (items, status, total_amount, user_detail) VALUES (?, ?, ?, ?)");
-    stmt.run(items, 'pending', total_amount, user_detail || 'Web User', function (err) {
-        if (err) {
-            res.status(400).json({ "error": err.message });
-            return;
-        }
-        res.json({
-            "message": "success",
-            "order_id": this.lastID
-        });
-    });
-    stmt.finalize();
+    const { data, error } = await supabase.from('orders').insert([
+        { items, status: 'pending', total_amount, user_detail: user_detail || 'Web User' }
+    ]).select();
+
+    if (error) return res.status(400).json({ "error": error.message });
+    res.json({ "message": "success", "order_id": data[0].id });
 });
 
 // --- CHATBOT ---
@@ -105,8 +81,8 @@ router.post('/chat', (req, res) => {
     }
 
     // 2. MENU SEARCH / CATEGORIES
-    db.all("SELECT * FROM menu", [], (err, rows) => {
-        if (err) return res.json({ response: "I'm sorry, I'm having trouble accessing our menu right now. Please try again in a moment." });
+    supabase.from('menu').select('*').then(({ data: rows, error }) => {
+        if (error) return res.json({ response: "I'm sorry, I'm having trouble accessing our menu right now. Please try again in a moment." });
 
         // RECOMMENDATIONS
         if (lowerMsg.includes('recommend') || lowerMsg.includes('popular') || lowerMsg.includes('best') || lowerMsg.includes('special')) {
