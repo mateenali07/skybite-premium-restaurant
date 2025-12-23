@@ -2,15 +2,26 @@ const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
 
-// Safe Stripe initialization
-const stripeKey = process.env.STRIPE_SECRET_KEY;
-if (!stripeKey) {
-    console.error("WARNING: STRIPE_SECRET_KEY is missing. Payment features will fail.");
-}
-const stripe = stripeKey ? Stripe(stripeKey) : null;
+// Safe Stripe initialization helper
+const getStripe = () => {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+        console.error("WARNING: STRIPE_SECRET_KEY is missing.");
+        return null;
+    }
+    return Stripe(stripeKey);
+};
 
 router.post('/create-payment-intent', async (req, res) => {
     const { amount } = req.body;
+    const stripe = getStripe();
+
+    if (!stripe) {
+        return res.status(500).json({
+            error: "Stripe is not configured on the server.",
+            version: "Production_2.1"
+        });
+    }
 
     if (!stripe) {
         return res.status(500).json({ error: "Stripe is not configured on the server." });

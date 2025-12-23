@@ -23,6 +23,7 @@ app.use(bodyParser.json());
 
 app.get('/api/health', (req, res) => {
     res.json({
+        version: "Production_2.1",
         status: "ok",
         time: new Date().toISOString(),
         env_check: {
