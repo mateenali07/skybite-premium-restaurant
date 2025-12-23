@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const SECRET_KEY = "my_secret_key_123"; // TODO: Move to process.env
+const SECRET_KEY = process.env.SECRET_KEY || "my_secret_key_123_fallback"; // SECURITY: Set this in Vercel Environment Variables
 
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
