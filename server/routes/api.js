@@ -8,7 +8,14 @@ const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
 // GET Menu (Public)
 router.get('/menu', async (req, res) => {
     const { data, error } = await supabase.from('menu').select('*');
-    if (error) return res.status(400).json({ "error": error.message });
+    if (error) {
+        console.error("Menu Fetch Error:", error.message);
+        return res.status(500).json({
+            "error": "Failed to fetch menu",
+            "details": error.message,
+            "suggestion": error.message === "Supabase not configured" ? "Check Vercel Environment Variables" : "Contact Admin"
+        });
+    }
     res.json({ "message": "success", "data": data });
 });
 
